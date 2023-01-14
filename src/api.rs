@@ -21,7 +21,7 @@ impl Api {
                 .build()?,
         })
     }
-    pub async fn login(&self) -> Result<User, reqwest::Error> {
+    async fn login(&self) -> Result<User, reqwest::Error> {
         let response: serde_json::Value = self
             .client
             .post("https://api.aiguesdebarcelona.cat/ofex-login-api/auth/getToken")
@@ -48,7 +48,7 @@ impl Api {
             response.get("expires_in").unwrap().as_i64().unwrap(),
         ))
     }
-    pub async fn contracts(&self, user: &User) -> Result<ContractResponse, reqwest::Error> {
+    async fn contracts(&self, user: &User) -> Result<ContractResponse, reqwest::Error> {
         self.client
             .get("https://api.aiguesdebarcelona.cat/ofex-contracts-api/contracts")
             .query(&[
@@ -61,7 +61,7 @@ impl Api {
             .json()
             .await
     }
-    pub async fn consumptions(
+    async fn consumptions(
         &self,
         user: &User,
         contract: &ContractDetail,
@@ -87,5 +87,15 @@ impl Api {
             .await?
             .json()
             .await
+    }
+
+    pub async fn get_today_consumptions(&self) -> Result<f32, reqwest::Error> {
+        let user = self.login().await?;
+        let contracts = self.contracts(&user).await?;
+        let today_consumptions = self
+            .consumptions(&user, contracts.first_contract_number())
+            .await?
+            .get_total_liters();
+        Ok(today_consumptions)
     }
 }
