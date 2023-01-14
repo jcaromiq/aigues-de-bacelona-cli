@@ -2,28 +2,64 @@ use serde::{Deserialize, Serialize};
 use std::env;
 
 #[derive(Debug, Serialize, Deserialize)]
-pub struct ContractResponse {
+pub struct ConsumptionResponse {
     #[serde(rename = "data")]
-    data: Vec<Data>,
+    pub consumptions: Vec<Consumption>,
+}
+
+impl ConsumptionResponse {
+    pub fn get_total_liters(&self) -> f32 {
+        self.consumptions
+            .iter()
+            .map(|x| x.to_litters())
+            .reduce(|acc, e| acc + e)
+            .unwrap_or(0.0)
+    }
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-pub struct Data {
+pub struct Consumption {
+    #[serde(rename = "deltaConsumption")]
+    pub delta_consumption: f32,
+    #[serde(rename = "datetime")]
+    pub date_time: String,
+}
+
+impl Consumption {
+    pub fn to_litters(&self) -> f32 {
+        self.delta_consumption * 1000.0
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct ContractResponse {
+    #[serde(rename = "data")]
+    pub contracts: Vec<Contract>,
+}
+
+impl ContractResponse {
+    pub fn first_contract_number(&self) -> &ContractDetail {
+        &self.contracts.first().expect("pa").detail
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct Contract {
     #[serde(rename = "contractDetail")]
-    contract_detail: ContractDetail,
+    pub detail: ContractDetail,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ContractDetail {
     #[serde(rename = "contractId")]
-    contract_id: String,
+    pub contract_id: String,
     #[serde(rename = "contractNumber")]
-    contract_number: String,
+    pub contract_number: String,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct User {
-    pub(crate) user: String,
+    pub user: String,
     access_token: String,
     scope: String,
     expires_in: i64,
