@@ -3,56 +3,76 @@ use reqwest::{header, Client};
 use serde::{Deserialize, Serialize};
 use std::env;
 
+struct Api {
+    client: Client,
+}
+
+impl Api {
+    fn new() -> Api {
+        let mut request_headers = header::HeaderMap::new();
+        request_headers.insert(
+            "Ocp-Apim-Subscription-Key",
+            HeaderValue::from_static("3cca6060fee14bffa3450b19941bd954"),
+        );
+        Api {
+            client: reqwest::ClientBuilder::new()
+                .default_headers(request_headers)
+                .cookie_store(true)
+                .build()
+                .unwrap(),
+        }
+    }
+    async fn login(&self) -> User {
+        let response: serde_json::Value = self
+            .client
+            .post("https://api.aiguesdebarcelona.cat/ofex-login-api/auth/getToken")
+            .query(&[("lang", "ca"), ("recaptchaClientResponse", "")])
+            .header(reqwest::header::CONTENT_TYPE, "application/json")
+            .header(
+                "Ocp-Apim-Subscription-Key",
+                "6a98b8b8c7b243cda682a43f09e6588b;product=portlet-login-ofex",
+            )
+            .json(&Login::from_env())
+            .send()
+            .await
+            .expect("http errpr")
+            .json()
+            .await
+            .expect("json error");
+        User::new(
+            Login::from_env().user_identification,
+            response
+                .get("access_token")
+                .unwrap()
+                .as_str()
+                .unwrap()
+                .to_string(),
+            response.get("scope").unwrap().as_str().unwrap().to_string(),
+            response.get("expires_in").unwrap().as_i64().unwrap(),
+        )
+    }
+    async fn contracts(&self, user: User) -> ContractResponse {
+        self.client
+            .get("https://api.aiguesdebarcelona.cat/ofex-contracts-api/contracts")
+            .query(&[
+                ("lang", "ca"),
+                ("userId", &user.user),
+                ("clientId", &user.user),
+            ])
+            .send()
+            .await
+            .expect("http errpr")
+            .json()
+            .await
+            .expect("json error")
+    }
+}
 
 #[tokio::main]
 async fn main() {
-    let mut request_headers = header::HeaderMap::new();
-    request_headers.insert(
-        "Ocp-Apim-Subscription-Key",
-        HeaderValue::from_static("3cca6060fee14bffa3450b19941bd954"),
-    );
-    let client: Client = reqwest::ClientBuilder::new()
-        .default_headers(request_headers)
-        .cookie_store(true)
-        .build()
-        .unwrap();
-    let token = login(&client).await;
-    let contracts = contracts(&client, token.user).await;
-}
-
-async fn contracts(client: &Client, user:String) -> ContractResponse {
-    client
-        .get("https://api.aiguesdebarcelona.cat/ofex-contracts-api/contracts")
-        .query(&[("lang", "ca"), ("userId", &user), ("clientId", &user)])
-        .send()
-        .await
-        .expect("http errpr")
-        .json()
-        .await
-        .expect("json error")
-}
-
-async fn login(client: &Client) -> LoginResponse {
-    let response : serde_json::Value = client
-        .post("https://api.aiguesdebarcelona.cat/ofex-login-api/auth/getToken")
-        .query(&[("lang", "ca"), ("recaptchaClientResponse", "")])
-        .header(reqwest::header::CONTENT_TYPE, "application/json")
-        .header(
-            "Ocp-Apim-Subscription-Key",
-            "6a98b8b8c7b243cda682a43f09e6588b;product=portlet-login-ofex",
-        )
-        .json(&Login::from_env())
-        .send()
-        .await
-        .expect("http errpr")
-        .json()
-        .await
-        .expect("json error");
-    LoginResponse::new(Login::from_env().user_identification,
-    response.get("access_token").unwrap().as_str().unwrap().to_string(),
-    response.get("scope").unwrap().as_str().unwrap().to_string(),
-    response.get("expires_in").unwrap().as_i64().unwrap(),
-    )
+    let api = Api::new();
+    let user = api.login().await;
+    let contracts = api.contracts(user).await;
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -76,16 +96,16 @@ struct ContractDetail {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-struct LoginResponse {
+struct User {
     user: String,
     access_token: String,
     scope: String,
     expires_in: i64,
 }
 
-impl LoginResponse {
-    fn new(user:String, access_token:String, scope:String, expires_in:i64) -> Self {
-        LoginResponse{
+impl User {
+    fn new(user: String, access_token: String, scope: String, expires_in: i64) -> Self {
+        User {
             user,
             access_token,
             scope,
@@ -93,6 +113,7 @@ impl LoginResponse {
         }
     }
 }
+
 #[derive(Debug, Serialize, Deserialize)]
 struct Login {
     #[serde(rename = "userIdentification")]
