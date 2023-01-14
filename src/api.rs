@@ -8,19 +8,18 @@ pub struct Api {
 }
 
 impl Api {
-    pub fn new() -> Api {
+    pub fn new() -> Result<Api, reqwest::Error> {
         let mut request_headers = header::HeaderMap::new();
         request_headers.insert(
             "Ocp-Apim-Subscription-Key",
             HeaderValue::from_static("3cca6060fee14bffa3450b19941bd954"),
         );
-        Api {
+        Ok(Api {
             client: reqwest::ClientBuilder::new()
                 .default_headers(request_headers)
                 .cookie_store(true)
-                .build()
-                .expect("Can not initialize HttpClient"),
-        }
+                .build()?,
+        })
     }
     pub async fn login(&self) -> Result<User, reqwest::Error> {
         let response: serde_json::Value = self
@@ -35,10 +34,8 @@ impl Api {
             .json(&Login::from_env())
             .send()
             .await?
-            //.expect("http errpr")
             .json()
             .await?;
-        // .expect("json error");
         Ok(User::new(
             Login::from_env().user_identification,
             response
@@ -51,7 +48,7 @@ impl Api {
             response.get("expires_in").unwrap().as_i64().unwrap(),
         ))
     }
-    pub async fn contracts(&self, user: &User) -> ContractResponse {
+    pub async fn contracts(&self, user: &User) -> Result<ContractResponse, reqwest::Error> {
         self.client
             .get("https://api.aiguesdebarcelona.cat/ofex-contracts-api/contracts")
             .query(&[
@@ -60,17 +57,15 @@ impl Api {
                 ("clientId", &user.user),
             ])
             .send()
-            .await
-            .expect("http errpr")
+            .await?
             .json()
             .await
-            .expect("json error")
     }
     pub async fn consumptions(
         &self,
         user: &User,
         contract: &ContractDetail,
-    ) -> ConsumptionResponse {
+    ) -> Result<ConsumptionResponse, reqwest::Error> {
         self.client
             .get("https://api.aiguesdebarcelona.cat/ofex-water-consumptions-api/meter/consumptions")
             .query(&[
@@ -89,10 +84,8 @@ impl Api {
                 ("showNegativeValues", "false"),
             ])
             .send()
-            .await
-            .expect("http errpr")
+            .await?
             .json()
             .await
-            .expect("json error")
     }
 }
