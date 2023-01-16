@@ -7,8 +7,13 @@ mod domain;
 async fn main() -> Result<(), reqwest::Error> {
     let api = Api::new()?;
     println!(
-        "Today consumed liters {:?}",
+        "Today Consumed liters {:?}",
         api.get_today_consumptions().await?
+    );
+
+    println!(
+        "Yesterday Consumed liters {:?}",
+        api.get_yesterday_consumptions().await?
     );
     Ok(())
 }

@@ -1,5 +1,5 @@
 use crate::domain::{ConsumptionResponse, ContractDetail, ContractResponse, Login, User};
-use chrono::{Duration, Local};
+use chrono::{DateTime, Duration, Local};
 use reqwest::header::HeaderValue;
 use reqwest::{header, Client};
 
@@ -65,6 +65,8 @@ impl Api {
         &self,
         user: &User,
         contract: &ContractDetail,
+        from: DateTime<Local>,
+        to: DateTime<Local>,
     ) -> Result<ConsumptionResponse, reqwest::Error> {
         self.client
             .get("https://api.aiguesdebarcelona.cat/ofex-water-consumptions-api/meter/consumptions")
@@ -74,12 +76,10 @@ impl Api {
                 ("lang", "ca"),
                 ("clientId", &user.user),
                 ("userId", &user.user),
-                ("fromDate", &Local::now().format("%d-%m-%Y").to_string()),
+                ("fromDate", &from.format("%d-%m-%Y").to_string()),
                 (
                     "toDate",
-                    &(Local::now() + Duration::days(1))
-                        .format("%d-%m-%Y")
-                        .to_string(),
+                    &to.format("%d-%m-%Y").to_string(),
                 ),
                 ("showNegativeValues", "false"),
             ])
@@ -93,7 +93,17 @@ impl Api {
         let user = self.login().await?;
         let contracts = self.contracts(&user).await?;
         let today_consumptions = self
-            .consumptions(&user, contracts.first_contract_number())
+            .consumptions(&user, contracts.first_contract_number(), Local::now(), Local::now() + Duration::days(1))
+            .await?
+            .get_total_liters();
+        Ok(today_consumptions)
+    }
+
+    pub async fn get_yesterday_consumptions(&self) -> Result<f32, reqwest::Error> {
+        let user = self.login().await?;
+        let contracts = self.contracts(&user).await?;
+        let today_consumptions = self
+            .consumptions(&user, contracts.first_contract_number(), Local::now() - Duration::days(1), Local::now())
             .await?
             .get_total_liters();
         Ok(today_consumptions)
