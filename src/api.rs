@@ -10,15 +10,20 @@ pub struct Api {
 
 impl Api {
     pub async fn new() -> Result<Api, reqwest::Error> {
-        let user = Login::from_env().user_identification;
+        let credentials = Login::from_env();
 
         let client = Self::init_client()?;
 
-        let access_token = Self::get_token(&client).await;
+        let access_token = Self::get_token(&client, &credentials).await;
 
-        let contract_number = Self::get_contract_number(&user, &client).await;
+        let contract_number =
+            Self::get_contract_number(&credentials.user_identification, &client).await;
 
-        let user = User::new(user, access_token?, contract_number?);
+        let user = User::new(
+            credentials.user_identification,
+            access_token?,
+            contract_number?,
+        );
         Ok(Api { client, user })
     }
 
@@ -33,7 +38,7 @@ impl Api {
         Ok(contract_number.first_contract_number())
     }
 
-    async fn get_token(client: &Client) -> Result<String, reqwest::Error> {
+    async fn get_token(client: &Client, credentials: &Login) -> Result<String, reqwest::Error> {
         let access_token: serde_json::Value = client
             .post("https://api.aiguesdebarcelona.cat/ofex-login-api/auth/getToken")
             .query(&[("lang", "ca"), ("recaptchaClientResponse", "")])
@@ -42,7 +47,7 @@ impl Api {
                 "Ocp-Apim-Subscription-Key",
                 "6a98b8b8c7b243cda682a43f09e6588b;product=portlet-login-ofex",
             )
-            .json(&Login::from_env())
+            .json(&credentials)
             .send()
             .await?
             .json()
@@ -69,19 +74,6 @@ impl Api {
         Ok(client)
     }
 
-    // async fn contracts(&self, user: &User) -> Result<ContractResponse, reqwest::Error> {
-    //     self.client
-    //         .get("https://api.aiguesdebarcelona.cat/ofex-contracts-api/contracts")
-    //         .query(&[
-    //             ("lang", "ca"),
-    //             ("userId", &user.user),
-    //             ("clientId", &user.user),
-    //         ])
-    //         .send()
-    //         .await?
-    //         .json()
-    //         .await
-    // }
     async fn consumptions(
         &self,
         contract: String,
