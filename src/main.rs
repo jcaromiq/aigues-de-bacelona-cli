@@ -5,7 +5,7 @@ mod domain;
 
 #[tokio::main]
 async fn main() -> Result<(), reqwest::Error> {
-    let api = Api::new()?;
+    let api = Api::new().await?;
     println!(
         "Today Consumed liters {:?}",
         api.get_today_consumptions().await?
