@@ -4,7 +4,7 @@ use reqwest::header::HeaderValue;
 use reqwest::{header, Client};
 
 pub struct Api {
-    client: Client,
+    http_client: Client,
     user: User,
 }
 
@@ -12,23 +12,23 @@ impl Api {
     pub async fn new() -> Result<Api, reqwest::Error> {
         let credentials = Login::from_env();
 
-        let client = Self::init_client()?;
+        let http_client = Self::init_client()?;
 
-        let access_token = Self::get_token(&client, &credentials).await;
+        let access_token = Self::get_token(&http_client, &credentials).await;
 
         let contract_number =
-            Self::get_contract_number(&credentials.user_identification, &client).await;
+            Self::get_contract_number(&credentials.user_identification, &http_client).await;
 
         let user = User::new(
             credentials.user_identification,
             access_token?,
             contract_number?,
         );
-        Ok(Api { client, user })
+        Ok(Api { http_client, user })
     }
 
-    async fn get_contract_number(user: &String, client: &Client) -> Result<String, reqwest::Error> {
-        let contract_number: ContractResponse = client
+    async fn get_contract_number(user: &String, http_client: &Client) -> Result<String, reqwest::Error> {
+        let contract_number: ContractResponse = http_client
             .get("https://api.aiguesdebarcelona.cat/ofex-contracts-api/contracts")
             .query(&[("lang", "ca"), ("userId", user), ("clientId", user)])
             .send()
@@ -38,8 +38,8 @@ impl Api {
         Ok(contract_number.first_contract_number())
     }
 
-    async fn get_token(client: &Client, credentials: &Login) -> Result<String, reqwest::Error> {
-        let access_token: serde_json::Value = client
+    async fn get_token(http_client: &Client, credentials: &Login) -> Result<String, reqwest::Error> {
+        let response: serde_json::Value = http_client
             .post("https://api.aiguesdebarcelona.cat/ofex-login-api/auth/getToken")
             .query(&[("lang", "ca"), ("recaptchaClientResponse", "")])
             .header(reqwest::header::CONTENT_TYPE, "application/json")
@@ -52,7 +52,7 @@ impl Api {
             .await?
             .json()
             .await?;
-        Ok(access_token
+        Ok(response
             .get("access_token")
             .unwrap()
             .as_str()
@@ -80,7 +80,7 @@ impl Api {
         from: DateTime<Local>,
         to: DateTime<Local>,
     ) -> Result<ConsumptionResponse, reqwest::Error> {
-        self.client
+        self.http_client
             .get("https://api.aiguesdebarcelona.cat/ofex-water-consumptions-api/meter/consumptions")
             .query(&[
                 ("consumptionFrequency", "HOURLY"),
