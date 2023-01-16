@@ -38,8 +38,13 @@ pub struct ContractResponse {
 }
 
 impl ContractResponse {
-    pub fn first_contract_number(&self) -> &ContractDetail {
-        &self.contracts.first().expect("pa").detail
+    pub fn first_contract_number(&self) -> String {
+        self.contracts
+            .first()
+            .expect("pa")
+            .detail
+            .contract_number
+            .clone()
     }
 }
 
@@ -61,17 +66,15 @@ pub struct ContractDetail {
 pub struct User {
     pub user: String,
     access_token: String,
-    scope: String,
-    expires_in: i64,
+    pub contract_number: String,
 }
 
 impl User {
-    pub(crate) fn new(user: String, access_token: String, scope: String, expires_in: i64) -> Self {
+    pub fn new(user: String, access_token: String, contract_number: String) -> Self {
         User {
             user,
             access_token,
-            scope,
-            expires_in,
+            contract_number,
         }
     }
 }
